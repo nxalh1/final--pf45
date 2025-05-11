@@ -1,0 +1,280 @@
+# Import required libraries
+from Code import *  # Assuming custom logic/classes in another file
+import tkinter as tk
+from tkinter import ttk, messagebox
+import pickle
+import os
+
+
+# ----------------------------
+# File Handling Functions
+# ----------------------------
+
+# Save data to binary file
+def save_data(data, filename):
+    with open(filename, 'wb') as f:
+        pickle.dump(data, f)
+
+
+# Load data from binary file (or return default if not found)
+def load_data(filename, default):
+    if not os.path.exists(filename):
+        return default
+    with open(filename, 'rb') as f:
+        return pickle.load(f)
+
+
+# ----------------------------
+# Data Model Classes
+# ----------------------------
+
+# Customer holds login info and purchase history
+class Customer:
+    def __init__(self, username, password, email, phone):
+        self.username = username
+        self.password = password
+        self.email = email
+        self.phone = phone
+        self.orders = []  # List of Order objects
+
+
+# Order stores details about each ticket purchase
+class Order:
+    def __init__(self, order_id, tickets, total, status, date, payment):
+        self.order_id = order_id
+        self.tickets = tickets
+        self.total = total
+        self.status = status
+        self.date = date
+        self.payment = payment
+
+
+# Ticket represents an individual race or season ticket
+class Ticket:
+    def __init__(self, ticket_id, ticket_type, price, section):
+        self.ticket_id = ticket_id
+        self.ticket_type = ticket_type
+        self.price = price
+        self.section = section
+
+
+# ----------------------------
+# Main GUI Application Class
+# ----------------------------
+
+class GrandPrixApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Grand Prix Experience")
+        self.root.geometry("600x500")
+
+        # Load saved customers
+        self.users = load_data("customers.pkl", {})
+        self.current_user = None  # Logged-in customer
+
+        self.show_login()  # Start at login screen
+
+    # Remove all current widgets from screen
+    def clear(self):
+        for widget in self.root.winfo_children():
+            widget.destroy()
+
+    # ----------------------------
+    # Login Screen
+    # ----------------------------
+    def show_login(self):
+        self.clear()
+        # Header
+        tk.Label(self.root, text="Grand Prix Experience", font=("Arial", 20, "bold"), bg='#2e3e4e', fg='white').pack(
+            fill='x')
+        tk.Label(self.root, text="Customer Ticket Portal", bg='#2e3e4e', fg='lightgray').pack(fill='x')
+
+        # Login Form Frame
+        frame = tk.Frame(self.root, bg='#3d4f61', padx=30, pady=30)
+        frame.pack(pady=40)
+
+        # Username and password input
+        tk.Label(frame, text="Username:", bg='#3d4f61', fg='white').grid(row=0, column=0, sticky='w')
+        username_entry = tk.Entry(frame, width=30)
+        username_entry.grid(row=0, column=1)
+
+        tk.Label(frame, text="Password:", bg='#3d4f61', fg='white').grid(row=1, column=0, sticky='w')
+        password_entry = tk.Entry(frame, width=30, show='*')
+        password_entry.grid(row=1, column=1)
+
+        # Login logic
+        def login():
+            u = username_entry.get()
+            p = password_entry.get()
+            user = self.users.get(u)
+            if user and user.password == p:
+                self.current_user = user
+                self.show_dashboard()
+            else:
+                messagebox.showerror("Login Failed", "Invalid credentials")
+
+        tk.Button(frame, text="Login", command=login).grid(row=2, column=0, columnspan=2, pady=10)
+        tk.Label(frame, text="Don't have an account?", bg='#3d4f61', fg='white').grid(row=3, column=0, columnspan=2)
+        tk.Button(frame, text="Register", command=self.show_register).grid(row=4, column=0, columnspan=2)
+
+    # ----------------------------
+    # Registration Screen
+    # ----------------------------
+    def show_register(self):
+        self.clear()
+        tk.Label(self.root, text="Register New Account", font=("Arial", 18, "bold"), bg='#2e3e4e', fg='white').pack(
+            fill='x')
+        frame = tk.Frame(self.root, bg='#3d4f61', padx=30, pady=30)
+        frame.pack(pady=40)
+
+        # Registration fields
+        tk.Label(frame, text="Username:", bg='#3d4f61', fg='white').grid(row=0, column=0, sticky='w')
+        username_entry = tk.Entry(frame, width=30)
+        username_entry.grid(row=0, column=1)
+
+        tk.Label(frame, text="Password:", bg='#3d4f61', fg='white').grid(row=1, column=0, sticky='w')
+        password_entry = tk.Entry(frame, width=30, show='*')
+        password_entry.grid(row=1, column=1)
+
+        tk.Label(frame, text="Email:", bg='#3d4f61', fg='white').grid(row=2, column=0, sticky='w')
+        email_entry = tk.Entry(frame, width=30)
+        email_entry.grid(row=2, column=1)
+
+        tk.Label(frame, text="Phone (optional):", bg='#3d4f61', fg='white').grid(row=3, column=0, sticky='w')
+        phone_entry = tk.Entry(frame, width=30)
+        phone_entry.grid(row=3, column=1)
+
+        # Register logic
+        def register():
+            u = username_entry.get()
+            p = password_entry.get()
+            e = email_entry.get()
+            ph = phone_entry.get()
+            if u in self.users:
+                messagebox.showerror("Error", "Username already exists")
+            else:
+                self.users[u] = Customer(u, p, e, ph)
+                save_data(self.users, 'customers.pkl')
+                messagebox.showinfo("Registered", "Account created successfully")
+                self.show_login()
+
+        tk.Button(frame, text="Register", command=register).grid(row=4, column=0, columnspan=2, pady=10)
+        tk.Button(frame, text="Back to Login", command=self.show_login).grid(row=5, column=0, columnspan=2)
+
+    # ----------------------------
+    # Main Dashboard after login
+    # ----------------------------
+    def show_dashboard(self):
+        self.clear()
+        tabControl = ttk.Notebook(self.root)
+        self.tab1 = ttk.Frame(tabControl)  # Buy Tickets
+        self.tab2 = ttk.Frame(tabControl)  # View Orders
+        self.tab3 = ttk.Frame(tabControl)  # View/Edit Profile
+        tabControl.add(self.tab1, text='Buy Tickets')
+        tabControl.add(self.tab2, text='My Orders')
+        tabControl.add(self.tab3, text='My Profile')
+        tabControl.pack(expand=1, fill='both')
+
+        self.build_buy_tab()
+        self.build_order_tab()
+        self.build_profile_tab()
+
+    # ----------------------------
+    # Tab 1 - Buy Tickets
+    # ----------------------------
+    def build_buy_tab(self):
+        # Ticket type selector
+        tk.Label(self.tab1, text="Select Ticket Type:").pack(pady=5)
+        self.ticket_type = tk.StringVar()
+        type_menu = ttk.Combobox(self.tab1, textvariable=self.ticket_type, values=["Single Race", "Season Package"],
+                                 state='readonly')
+        type_menu.pack()
+        type_menu.current(0)
+
+        # Section selector
+        tk.Label(self.tab1, text="Select Section:").pack()
+        self.section = tk.StringVar()
+        section_menu = ttk.Combobox(self.tab1, textvariable=self.section, values=["Main Grandstand", "Backstretch"],
+                                    state='readonly')
+        section_menu.pack()
+        section_menu.current(0)
+
+        # Quantity and payment method
+        tk.Label(self.tab1, text="Quantity:").pack()
+        self.qty = tk.Spinbox(self.tab1, from_=1, to=10)
+        self.qty.pack()
+
+        tk.Label(self.tab1, text="Payment Method:").pack()
+        self.pay_method = tk.StringVar()
+        pay_menu = ttk.Combobox(self.tab1, textvariable=self.pay_method, values=["Credit Card", "Digital Wallet"],
+                                state='readonly')
+        pay_menu.pack()
+        pay_menu.current(0)
+
+        tk.Button(self.tab1, text="Complete Purchase", command=self.complete_purchase).pack(pady=20)
+
+    # Purchase logic for tickets
+    def complete_purchase(self):
+        order_id = f"ORD-{len(self.current_user.orders) + 1}"
+        ticket_price = 300.0 if self.ticket_type.get() == "Single Race" else 1200.0
+        qty = int(self.qty.get())
+        total = qty * ticket_price
+
+        # Create ticket and order objects
+        tickets = [Ticket(f"TKT-{i + 1}", self.ticket_type.get(), ticket_price, self.section.get()) for i in range(qty)]
+        new_order = Order(order_id, tickets, total, "Confirmed", "11-05-2025", self.pay_method.get())
+
+        # Save and notify
+        self.current_user.orders.append(new_order)
+        save_data(self.users, 'customers.pkl')
+        messagebox.showinfo("Success", f"Purchase completed!\nOrder ID: {order_id}")
+        self.build_order_tab()
+
+    # ----------------------------
+    # Tab 2 - View Orders
+    # ----------------------------
+    def build_order_tab(self):
+        for widget in self.tab2.winfo_children(): widget.destroy()
+        tk.Label(self.tab2, text="My Orders", font=("Arial", 12, "bold")).pack()
+        for o in self.current_user.orders:
+            tk.Label(self.tab2,
+                     text=f"{o.order_id} | {o.date} | {o.status} | ${o.total} | {len(o.tickets)} Tickets").pack()
+
+    # ----------------------------
+    # Tab 3 - Profile Info and Password Change
+    # ----------------------------
+    def build_profile_tab(self):
+        for widget in self.tab3.winfo_children(): widget.destroy()
+        user = self.current_user
+        tk.Label(self.tab3, text=f"Username: {user.username}").pack(pady=5)
+        tk.Label(self.tab3, text=f"Email: {user.email}").pack()
+        tk.Label(self.tab3, text=f"Phone: {user.phone}").pack()
+
+        # Password change form
+        tk.Label(self.tab3, text="\nChange Password").pack()
+        old = tk.Entry(self.tab3, show='*')
+        new = tk.Entry(self.tab3, show='*')
+        conf = tk.Entry(self.tab3, show='*')
+        old.pack();
+        new.pack();
+        conf.pack()
+
+        # Password update logic
+        def update():
+            if old.get() == user.password and new.get() == conf.get():
+                user.password = new.get()
+                save_data(self.users, 'customers.pkl')
+                messagebox.showinfo("Updated", "Password changed successfully")
+            else:
+                messagebox.showerror("Error", "Passwords do not match")
+
+        tk.Button(self.tab3, text="Update Password", command=update).pack(pady=10)
+
+
+# ----------------------------
+# Run the App
+# ----------------------------
+if __name__ == '__main__':
+    root = tk.Tk()
+    app = GrandPrixApp(root)
+    root.mainloop()
